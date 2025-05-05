@@ -45,7 +45,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
   const formattedDate = new Date().toLocaleDateString("pt-BR");
 
   return (
-    <Card className="bg-budget-gray print:shadow-none print:border-none">
+    <Card className="bg-budget-gray">
       <CardHeader>
         <CardTitle>Visualização do Orçamento</CardTitle>
       </CardHeader>
