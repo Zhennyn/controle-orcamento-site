@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ClientForm from "@/components/ClientForm";
@@ -8,6 +8,8 @@ import BudgetItems, { BudgetItem } from "@/components/BudgetItems";
 import BudgetSummary from "@/components/BudgetSummary";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/components/ui/sonner";
+import { generatePDF } from "@/utils/pdfGenerator";
 
 const Index: React.FC = () => {
   // Client data state
@@ -29,10 +31,41 @@ const Index: React.FC = () => {
 
   // Budget items state
   const [items, setItems] = useState<BudgetItem[]>([]);
+  const [activeTab, setActiveTab] = useState("form");
+  const budgetRef = useRef<HTMLDivElement>(null);
 
-  // Generate PDF or download budget
-  const handleGenerateBudget = () => {
-    alert("Funcionalidade de geração de PDF será implementada em breve!");
+  // Generate PDF and download budget
+  const handleGenerateBudget = async () => {
+    // If viewing the form, switch to the preview first
+    if (activeTab === "form") {
+      setActiveTab("preview");
+      // Give time for the preview to render before generating PDF
+      toast.info("Visualizando orçamento. Clique em 'Baixar PDF' para salvar.");
+      return;
+    }
+    
+    // Generate the PDF
+    const budgetNumber = `ORC-${new Date().getFullYear()}${(new Date().getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}${new Date().getDate().toString().padStart(2, "0")}-${Math.floor(
+      Math.random() * 1000
+    ).toString().padStart(3, "0")}`;
+    
+    const result = await generatePDF("budget-preview", `${budgetNumber}.pdf`);
+    
+    if (result) {
+      toast.success("PDF gerado com sucesso!");
+    } else {
+      toast.error("Erro ao gerar o PDF. Tente novamente.");
+    }
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
+
+  const handleBackToEdit = () => {
+    setActiveTab("form");
   };
 
   return (
@@ -50,7 +83,7 @@ const Index: React.FC = () => {
         </section>
 
         <div className="max-w-5xl mx-auto">
-          <Tabs defaultValue="form" className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="form" className="text-lg py-3">Criar Orçamento</TabsTrigger>
               <TabsTrigger value="preview" className="text-lg py-3">Visualizar</TabsTrigger>
@@ -67,21 +100,24 @@ const Index: React.FC = () => {
                   size="lg"
                   className="bg-budget-green hover:bg-green-600 text-white"
                 >
-                  Gerar Orçamento
+                  Visualizar Orçamento
                 </Button>
               </div>
             </TabsContent>
             
             <TabsContent value="preview" className="animate-fade-in">
-              <BudgetSummary 
-                clientData={clientData} 
-                companyData={companyData} 
-                items={items} 
-              />
+              <div id="budget-preview" ref={budgetRef}>
+                <BudgetSummary 
+                  clientData={clientData} 
+                  companyData={companyData} 
+                  items={items} 
+                />
+              </div>
               <div className="flex justify-center mt-8 space-x-4">
                 <Button 
                   variant="outline"
                   size="lg"
+                  onClick={handleBackToEdit}
                 >
                   Voltar para Edição
                 </Button>
