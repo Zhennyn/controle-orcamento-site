@@ -12,6 +12,8 @@ import SignUp from "./pages/SignUp";
 import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import TermsOfUse from "./pages/TermsOfUse";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +27,8 @@ const App = () => (
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
+            <Route path="/termos" element={<TermsOfUse />} />
+            <Route path="/privacidade" element={<PrivacyPolicy />} />
             
             <Route element={<PublicRoute />}>
               <Route path="/login" element={<Login />} />
