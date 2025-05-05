@@ -1,5 +1,6 @@
 
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ClientForm from "@/components/ClientForm";
@@ -8,8 +9,14 @@ import BudgetItems, { BudgetItem } from "@/components/BudgetItems";
 import BudgetSummary from "@/components/BudgetSummary";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const Index: React.FC = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
   // Client data state
   const [clientData, setClientData] = useState({
     name: "",
@@ -29,10 +36,74 @@ const Index: React.FC = () => {
 
   // Budget items state
   const [items, setItems] = useState<BudgetItem[]>([]);
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState("form");
 
-  // Generate PDF or download budget
-  const handleGenerateBudget = () => {
-    alert("Funcionalidade de geração de PDF será implementada em breve!");
+  // Save budget to database
+  const handleSaveBudget = async () => {
+    if (!user) {
+      toast.error("Você precisa estar logado para salvar orçamentos");
+      navigate("/login");
+      return;
+    }
+
+    if (clientData.name.trim() === "") {
+      toast.error("Por favor, preencha o nome do cliente");
+      return;
+    }
+
+    if (items.length === 0) {
+      toast.error("Por favor, adicione pelo menos um item ao orçamento");
+      return;
+    }
+
+    try {
+      // First, insert the budget
+      const { data: budgetData, error: budgetError } = await supabase
+        .from("budgets")
+        .insert({
+          user_id: user.id,
+          client_name: clientData.name,
+          service_description: companyData.name, // Using company name as service description for now
+          observations: "",
+        })
+        .select()
+        .single();
+
+      if (budgetError) {
+        throw budgetError;
+      }
+
+      // Then, insert all budget items
+      const budgetItems = items.map(item => ({
+        budget_id: budgetData.id,
+        item_name: item.description,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from("budget_items")
+        .insert(budgetItems);
+
+      if (itemsError) {
+        throw itemsError;
+      }
+
+      toast.success("Orçamento salvo com sucesso!");
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 1500);
+    } catch (error: any) {
+      toast.error("Erro ao salvar orçamento: " + error.message);
+      console.error("Error saving budget:", error);
+    }
+  };
+
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
   };
 
   return (
@@ -50,7 +121,12 @@ const Index: React.FC = () => {
         </section>
 
         <div className="max-w-5xl mx-auto">
-          <Tabs defaultValue="form" className="w-full">
+          <Tabs 
+            defaultValue="form" 
+            value={activeTab}
+            onValueChange={handleTabChange}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="form" className="text-lg py-3">Criar Orçamento</TabsTrigger>
               <TabsTrigger value="preview" className="text-lg py-3">Visualizar</TabsTrigger>
@@ -61,13 +137,20 @@ const Index: React.FC = () => {
               <CompanyForm companyData={companyData} setCompanyData={setCompanyData} />
               <BudgetItems items={items} setItems={setItems} />
               
-              <div className="flex justify-end pt-6">
+              <div className="flex justify-end pt-6 space-x-3">
                 <Button 
-                  onClick={handleGenerateBudget} 
+                  onClick={() => handleTabChange("preview")} 
+                  variant="outline"
+                  size="lg"
+                >
+                  Pré-visualizar
+                </Button>
+                <Button 
+                  onClick={handleSaveBudget} 
                   size="lg"
                   className="bg-budget-green hover:bg-green-600 text-white"
                 >
-                  Gerar Orçamento
+                  Salvar Orçamento
                 </Button>
               </div>
             </TabsContent>
@@ -76,23 +159,9 @@ const Index: React.FC = () => {
               <BudgetSummary 
                 clientData={clientData} 
                 companyData={companyData} 
-                items={items} 
+                items={items}
+                onBackToEdit={() => handleTabChange("form")} 
               />
-              <div className="flex justify-center mt-8 space-x-4">
-                <Button 
-                  variant="outline"
-                  size="lg"
-                >
-                  Voltar para Edição
-                </Button>
-                <Button 
-                  onClick={handleGenerateBudget} 
-                  size="lg"
-                  className="bg-budget-green hover:bg-green-600 text-white"
-                >
-                  Baixar PDF
-                </Button>
-              </div>
             </TabsContent>
           </Tabs>
         </div>

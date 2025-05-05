@@ -1,7 +1,10 @@
 
-import React from "react";
+import React, { useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { BudgetItem } from "./BudgetItems";
+import { generatePDF } from "@/utils/pdfUtils";
+import { toast } from "sonner";
 
 interface BudgetSummaryProps {
   clientData: {
@@ -18,13 +21,17 @@ interface BudgetSummaryProps {
     logo: string | null;
   };
   items: BudgetItem[];
+  onBackToEdit?: () => void;
 }
 
 const BudgetSummary: React.FC<BudgetSummaryProps> = ({
   clientData,
   companyData,
   items,
+  onBackToEdit,
 }) => {
+  const budgetRef = useRef<HTMLDivElement>(null);
+
   const calculateTotal = (item: BudgetItem) => {
     return item.quantity * item.unitPrice;
   };
@@ -44,13 +51,23 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
 
   const formattedDate = new Date().toLocaleDateString("pt-BR");
 
+  const handleDownloadPDF = async () => {
+    const success = await generatePDF("budget-pdf", `Orcamento-${budgetNumber}`);
+    
+    if (success) {
+      toast.success("PDF gerado com sucesso!");
+    } else {
+      toast.error("Erro ao gerar PDF. Por favor, tente novamente.");
+    }
+  };
+
   return (
     <Card className="bg-budget-gray">
       <CardHeader>
         <CardTitle>Visualização do Orçamento</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="bg-white p-6 rounded-md shadow-sm">
+        <div id="budget-pdf" ref={budgetRef} className="bg-white p-6 rounded-md shadow-sm">
           <div className="flex flex-col md:flex-row justify-between pb-6 border-b">
             <div className="mb-4 md:mb-0">
               {companyData.logo ? (
@@ -58,6 +75,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
                   src={companyData.logo}
                   alt="Logo da Empresa"
                   className="h-16 object-contain mb-2"
+                  crossOrigin="anonymous"
                 />
               ) : (
                 <div className="h-16 w-16 bg-budget-blue rounded-md flex items-center justify-center mb-2">
@@ -138,6 +156,25 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
               Para aprovar, responda este e-mail ou entre em contato.
             </p>
           </div>
+        </div>
+
+        <div className="flex justify-center mt-8 space-x-4">
+          {onBackToEdit && (
+            <Button 
+              variant="outline"
+              size="lg"
+              onClick={onBackToEdit}
+            >
+              Voltar para Edição
+            </Button>
+          )}
+          <Button 
+            onClick={handleDownloadPDF} 
+            size="lg"
+            className="bg-budget-green hover:bg-green-600 text-white"
+          >
+            Baixar PDF
+          </Button>
         </div>
       </CardContent>
     </Card>
