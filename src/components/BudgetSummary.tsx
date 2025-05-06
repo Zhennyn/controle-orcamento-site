@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,7 @@ import { BudgetItem } from "./BudgetItems";
 import { generatePDF } from "@/utils/pdfUtils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BudgetSummaryProps {
   clientData: {
