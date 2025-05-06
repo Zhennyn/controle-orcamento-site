@@ -1,7 +1,9 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 type UserPlan = "free" | "premium";
 
@@ -20,6 +22,7 @@ interface AuthContextType {
     data: any | null;
   }>;
   signOut: () => Promise<void>;
+  checkSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -31,25 +34,95 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userPlan, setUserPlan] = useState<UserPlan>("free");
   const navigate = useNavigate();
 
+  // Check user subscription status with Stripe
+  const checkSubscription = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('check-subscription', {
+        body: {},
+      });
+      
+      if (error) throw error;
+      
+      if (data?.premium) {
+        setUserPlan('premium');
+      } else {
+        setUserPlan('free');
+      }
+    } catch (error: any) {
+      console.error("Erro ao verificar assinatura:", error);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          // Check for premium status in user metadata
+          const isPremium = session.user?.user_metadata?.premium === true;
+          setUserPlan(isPremium ? 'premium' : 'free');
+          
+          // Also verify with Stripe to be sure
+          try {
+            await checkSubscription();
+          } catch (error) {
+            console.error("Erro ao verificar assinatura no login:", error);
+          }
+        }
+        
         setLoading(false);
       }
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        // Check for premium status in user metadata
+        const isPremium = session.user?.user_metadata?.premium === true;
+        setUserPlan(isPremium ? 'premium' : 'free');
+        
+        // Also verify with Stripe
+        try {
+          await checkSubscription();
+        } catch (error) {
+          console.error("Erro ao verificar assinatura na inicialização:", error);
+        }
+      }
+      
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Check for payment success or cancel URL params
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const paymentStatus = queryParams.get('payment');
+    
+    if (paymentStatus === 'success') {
+      toast.success("Pagamento processado com sucesso!");
+      toast("Verificando status da assinatura...");
+      checkSubscription().then(() => {
+        // Remove the query parameter
+        navigate('/dashboard', { replace: true });
+      });
+    } else if (paymentStatus === 'cancel') {
+      toast("Pagamento cancelado", {
+        description: "Você pode tentar novamente quando quiser."
+      });
+      // Remove the query parameter
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate]);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -59,9 +132,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       
       if (!error && data.user) {
-        // For demo purposes, we're assuming all users start with free plan
-        // In a real app, you would fetch this from a database
-        setUserPlan("free");
+        // Check if user is premium
+        const isPremium = data.user?.user_metadata?.premium === true;
+        setUserPlan(isPremium ? 'premium' : 'free');
+        
+        // Verify with Stripe
+        await checkSubscription();
       }
       
       return { data, error };
@@ -78,6 +154,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         options: {
           data: {
             full_name: name,
+            premium: false
           },
         },
       });
@@ -106,6 +183,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signIn,
     signUp,
     signOut,
+    checkSubscription
   };
 
   return (

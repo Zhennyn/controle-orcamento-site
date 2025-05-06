@@ -40,12 +40,11 @@ export const generatePDF = async (elementId: string, fileName: string, isFree: b
       pdf.setTextColor(200, 200, 200); // Light gray color
       pdf.setFontSize(16);
       
-      // Add watermark diagonally across the page
-      pdf.saveGraphicsState();
-      pdf.translate(imgWidth / 2, pageHeight / 2);
-      pdf.rotate(45 * Math.PI / 180);
-      pdf.text(watermarkText, -100, 0);
-      pdf.restoreGraphicsState();
+      // Add watermark diagonally across the page (jsPDF v3 compatible)
+      pdf.text(watermarkText, imgWidth / 2, pageHeight / 3, {
+        align: 'center',
+        angle: 45
+      });
       
       // Add footer watermark
       pdf.setFontSize(10);
@@ -73,11 +72,11 @@ export const generatePDF = async (elementId: string, fileName: string, isFree: b
         pdf.setTextColor(200, 200, 200); // Light gray color
         pdf.setFontSize(16);
         
-        pdf.saveGraphicsState();
-        pdf.translate(imgWidth / 2, pageHeight / 2);
-        pdf.rotate(45 * Math.PI / 180);
-        pdf.text(watermarkText, -100, 0);
-        pdf.restoreGraphicsState();
+        // Add watermark diagonally (jsPDF v3 compatible)
+        pdf.text(watermarkText, imgWidth / 2, pageHeight / 3, {
+          align: 'center',
+          angle: 45
+        });
         
         pdf.setFontSize(10);
         pdf.setTextColor(150, 150, 150);

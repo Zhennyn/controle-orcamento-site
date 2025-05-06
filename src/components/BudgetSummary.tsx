@@ -1,5 +1,5 @@
 
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BudgetItem } from "./BudgetItems";
@@ -32,8 +32,13 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
   onBackToEdit,
 }) => {
   const budgetRef = useRef<HTMLDivElement>(null);
-  const { userPlan } = useAuth();
+  const { userPlan, checkSubscription } = useAuth();
   const isFree = userPlan === "free";
+
+  useEffect(() => {
+    // Verifica o status da assinatura ao carregar o componente
+    checkSubscription();
+  }, [checkSubscription]);
 
   const calculateTotal = (item: BudgetItem) => {
     return item.quantity * item.unitPrice;
@@ -55,6 +60,9 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
   const formattedDate = new Date().toLocaleDateString("pt-BR");
 
   const handleDownloadPDF = async () => {
+    // Verificar novamente o status da assinatura antes de gerar o PDF
+    await checkSubscription();
+    
     const success = await generatePDF("budget-pdf", `Orcamento-${budgetNumber}`, isFree);
     
     if (success) {
@@ -66,6 +74,27 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
       }
     } else {
       toast.error("Erro ao gerar PDF. Por favor, tente novamente.");
+    }
+  };
+
+  const handleUpgrade = async () => {
+    try {
+      toast.loading("Iniciando o checkout...");
+      
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: {},
+      });
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("URL de checkout não encontrada");
+      }
+    } catch (error: any) {
+      console.error("Erro no checkout:", error);
+      toast.error("Erro ao iniciar o checkout: " + error.message);
     }
   };
 
@@ -172,7 +201,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
           </div>
         </div>
 
-        <div className="flex justify-center mt-8 space-x-4">
+        <div className="flex flex-col sm:flex-row justify-center mt-8 space-y-4 sm:space-y-0 sm:space-x-4">
           {onBackToEdit && (
             <Button 
               variant="outline"
@@ -182,6 +211,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
               Voltar para Edição
             </Button>
           )}
+          
           <Button 
             onClick={handleDownloadPDF} 
             size="lg"
@@ -189,6 +219,16 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
           >
             Baixar PDF
           </Button>
+          
+          {isFree && (
+            <Button 
+              onClick={handleUpgrade} 
+              size="lg"
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              Remover Marca D'água (R$20/mês)
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
