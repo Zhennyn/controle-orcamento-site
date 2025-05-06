@@ -1,6 +1,6 @@
-# 🌐 Site - Budget Blitz Creator
+# 🌐 Site - Controlorça
 
-Este é o site oficial do **Budget Blitz Creator**, uma aplicação voltada para o controle e criação de orçamentos de forma prática e intuitiva.
+Este é o site oficial do *Controlorça**, uma aplicação voltada para o controle e criação de orçamentos de forma prática e intuitiva.
 
 ## 🔎 Objetivo
 
