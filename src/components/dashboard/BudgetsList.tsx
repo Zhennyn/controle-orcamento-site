@@ -1,10 +1,11 @@
 
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FilePen, FileText } from "lucide-react";
+import { FilePen, FileText, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface Budget {
   id: string;
@@ -28,6 +29,9 @@ const BudgetsList: React.FC<BudgetsListProps> = ({
   onSetActiveTab,
   onBudgetsChange
 }) => {
+  const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
+  const navigate = useNavigate();
+
   const handleDeleteBudget = async (id: string) => {
     if (window.confirm("Tem certeza que deseja excluir este orçamento?")) {
       try {
@@ -46,6 +50,18 @@ const BudgetsList: React.FC<BudgetsListProps> = ({
         toast.error("Erro ao excluir orçamento: " + error.message);
         console.error("Error deleting budget:", error);
       }
+    }
+  };
+
+  const handleRowClick = (budgetId: string) => {
+    setSelectedBudgetId(budgetId === selectedBudgetId ? null : budgetId);
+  };
+
+  const handlePreviewBudget = () => {
+    if (selectedBudgetId) {
+      navigate(`/edit-budget/${selectedBudgetId}?view=preview`);
+    } else {
+      toast.error("Selecione um orçamento para visualizar");
     }
   };
 
@@ -74,47 +90,72 @@ const BudgetsList: React.FC<BudgetsListProps> = ({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="bg-gray-100 text-left">
-            <th className="py-3 px-4 font-semibold">Cliente</th>
-            <th className="py-3 px-4 font-semibold hidden md:table-cell">Descrição</th>
-            <th className="py-3 px-4 font-semibold hidden md:table-cell">Data</th>
-            <th className="py-3 px-4 font-semibold text-right">Ações</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {budgets.map((budget) => (
-            <tr key={budget.id} className="hover:bg-gray-50">
-              <td className="py-3 px-4">{budget.client_name}</td>
-              <td className="py-3 px-4 hidden md:table-cell">
-                {budget.service_description?.substring(0, 50) || "Sem descrição"}
-                {budget.service_description?.length > 50 ? "..." : ""}
-              </td>
-              <td className="py-3 px-4 hidden md:table-cell">
-                {new Date(budget.created_at).toLocaleDateString("pt-BR")}
-              </td>
-              <td className="py-3 px-4 text-right space-x-2">
-                <Link to={`/edit-budget/${budget.id}`}>
-                  <Button size="sm" variant="outline" className="bg-transparent text-budget-blue border-budget-blue hover:bg-budget-blue hover:text-white">
-                    <FilePen className="h-4 w-4 mr-1" />
-                    Editar
+    <div className="space-y-4">
+      {selectedBudgetId && (
+        <div className="flex justify-end">
+          <Button 
+            className="bg-budget-green hover:bg-green-600 text-white"
+            onClick={handlePreviewBudget}
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            Visualizar Selecionado
+          </Button>
+        </div>
+      )}
+      
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12"></TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead className="hidden md:table-cell">Descrição</TableHead>
+              <TableHead className="hidden md:table-cell">Data</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {budgets.map((budget) => (
+              <TableRow 
+                key={budget.id} 
+                className={`cursor-pointer ${selectedBudgetId === budget.id ? 'bg-blue-50' : ''} hover:bg-gray-50`}
+                onClick={() => handleRowClick(budget.id)}
+              >
+                <TableCell className="w-12">
+                  <div className={`w-4 h-4 rounded-full border border-gray-400 ${selectedBudgetId === budget.id ? 'bg-budget-blue border-budget-blue' : 'bg-white'}`}></div>
+                </TableCell>
+                <TableCell>{budget.client_name}</TableCell>
+                <TableCell className="hidden md:table-cell">
+                  {budget.service_description?.substring(0, 50) || "Sem descrição"}
+                  {budget.service_description?.length > 50 ? "..." : ""}
+                </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  {new Date(budget.created_at).toLocaleDateString("pt-BR")}
+                </TableCell>
+                <TableCell className="text-right space-x-2">
+                  <Link to={`/edit-budget/${budget.id}`} onClick={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="outline" className="bg-transparent text-budget-blue border-budget-blue hover:bg-budget-blue hover:text-white">
+                      <FilePen className="h-4 w-4 mr-1" />
+                      Editar
+                    </Button>
+                  </Link>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="bg-transparent text-red-600 border-red-600 hover:bg-red-600 hover:text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteBudget(budget.id);
+                    }}
+                  >
+                    Excluir
                   </Button>
-                </Link>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="bg-transparent text-red-600 border-red-600 hover:bg-red-600 hover:text-white"
-                  onClick={() => handleDeleteBudget(budget.id)}
-                >
-                  Excluir
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };

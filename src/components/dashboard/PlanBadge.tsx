@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,8 +10,11 @@ interface PlanBadgeProps {
 }
 
 const PlanBadge: React.FC<PlanBadgeProps> = ({ isFree }) => {
+  const [isLoading, setIsLoading] = useState(false);
+  
   const handleStartCheckout = async () => {
     try {
+      setIsLoading(true);
       toast.loading("Iniciando o checkout...");
       
       const { data, error } = await supabase.functions.invoke('create-checkout', {
@@ -28,6 +31,8 @@ const PlanBadge: React.FC<PlanBadgeProps> = ({ isFree }) => {
     } catch (error: any) {
       console.error("Erro no checkout:", error);
       toast.error("Erro ao iniciar o checkout: " + error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -47,10 +52,11 @@ const PlanBadge: React.FC<PlanBadgeProps> = ({ isFree }) => {
       <Button
         className="bg-budget-green hover:bg-green-600 text-white"
         size="sm"
+        disabled={isLoading}
         onClick={handleStartCheckout}
       >
         <CreditCard className="h-4 w-4 mr-2" />
-        Upgrade p/ Premium
+        {isLoading ? "Processando..." : "Upgrade p/ Premium"}
       </Button>
     </div>
   );
