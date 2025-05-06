@@ -136,7 +136,7 @@ const EditBudget: React.FC = () => {
         .update({
           client_name: clientData.name,
           service_description: companyData.name,
-          updated_at: new Date(),
+          updated_at: new Date().toISOString(),
         })
         .eq("id", id);
 
