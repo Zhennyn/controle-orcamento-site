@@ -1,25 +1,34 @@
-
-import { createContext, useContext, useEffect, useState } from "react";
-import { User, Session } from "@supabase/supabase-js";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Session, User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+
+type UserPlan = "free" | "premium";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  userPlan: UserPlan;
+  setUserPlan: (plan: UserPlan) => void;
+  signIn: (email: string, password: string) => Promise<{
+    error: any | null;
+    data: any | null;
+  }>;
+  signUp: (email: string, password: string, name: string) => Promise<{
+    error: any | null;
+    data: any | null;
+  }>;
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userPlan, setUserPlan] = useState<UserPlan>("free");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,67 +53,73 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        throw error;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (!error && data.user) {
+        // For demo purposes, we're assuming all users start with free plan
+        // In a real app, you would fetch this from a database
+        setUserPlan("free");
       }
-      navigate("/dashboard");
-      toast.success("Login realizado com sucesso!");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao realizar login");
-      throw error;
+      
+      return { data, error };
+    } catch (error) {
+      return { data: null, error };
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, name: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            full_name: fullName,
+            full_name: name,
           },
         },
       });
       
-      if (error) {
-        throw error;
+      if (!error && data.user) {
+        setUserPlan("free");
       }
       
-      toast.success("Conta criada com sucesso!");
-      navigate("/login");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar conta");
-      throw error;
+      return { data, error };
+    } catch (error) {
+      return { data: null, error };
     }
   };
 
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate("/login");
-      toast.success("Logout realizado com sucesso");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao fazer logout");
-    }
+    await supabase.auth.signOut();
+    navigate("/login");
   };
 
   const value = {
     user,
     session,
     loading,
+    userPlan,
+    setUserPlan,
     signIn,
     signUp,
     signOut,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={value}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;

@@ -30,12 +30,21 @@ interface Budget {
   created_at: string;
 }
 
+interface BudgetItem {
+  id: string;
+  budget_id: string;
+  item_name: string;
+  quantity: number;
+  unit_price: number;
+}
+
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, userPlan } = useAuth();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("meus-orcamentos");
   const navigate = useNavigate();
+  const isFree = userPlan === "free";
 
   useEffect(() => {
     const fetchBudgets = async () => {
@@ -84,25 +93,158 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleDownloadPDF = async (budgetId: string, clientName: string) => {
+  const handleDownloadPDF = async (budgetId: string) => {
     try {
-      // Navigate to the budget view page first to ensure it's rendered
-      navigate(`/budget/${budgetId}`);
+      // First, we need to fetch the budget details
+      const { data: budgetData, error: budgetError } = await supabase
+        .from("budgets")
+        .select("*")
+        .eq("id", budgetId)
+        .single();
       
-      // Wait for the page to load
-      setTimeout(async () => {
-        // Generate PDF
-        const result = await generatePDF('budget-preview', `orcamento-${clientName.replace(/\s+/g, '-').toLowerCase()}`);
-        
-        if (result) {
-          toast.success("PDF gerado com sucesso!");
-        } else {
-          toast.error("Erro ao gerar o PDF.");
+      if (budgetError) throw budgetError;
+      
+      // Then, fetch the budget items
+      const { data: itemsData, error: itemsError } = await supabase
+        .from("budget_items")
+        .select("*")
+        .eq("budget_id", budgetId);
+      
+      if (itemsError) throw itemsError;
+      
+      // Prepare client and company data
+      const clientData = {
+        name: budgetData.client_name || "",
+        email: "",
+        phone: "",
+        address: "",
+      };
+      
+      const companyData = {
+        name: budgetData.service_description || "",
+        email: "",
+        phone: "",
+        address: "",
+        logo: null,
+      };
+      
+      // Map budget items
+      const budgetItems = itemsData.map((item: BudgetItem) => ({
+        id: item.id,
+        description: item.item_name,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unit_price),
+      }));
+      
+      // Create a temporary container for the budget to render it for PDF
+      const container = document.createElement('div');
+      container.id = 'temp-budget-container';
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      document.body.appendChild(container);
+      
+      // Create the budget content
+      const budgetHtml = `
+        <div id="budget-pdf" class="bg-white p-6" style="width: 800px; font-family: Arial, sans-serif;">
+          <div style="display: flex; justify-content: space-between; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
+            <div>
+              <div style="height: 64px; width: 64px; background-color: #3b82f6; border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+                <span style="color: white; font-weight: bold; font-size: 24px;">${companyData.name.charAt(0) || "E"}</span>
+              </div>
+              <h2 style="font-weight: bold; font-size: 18px;">${companyData.name || "Sua Empresa"}</h2>
+              <p style="font-size: 14px; color: #6b7280;">${companyData.email || "contato@empresa.com"}</p>
+              <p style="font-size: 14px; color: #6b7280;">${companyData.phone || "(00) 00000-0000"}</p>
+              <p style="font-size: 14px; color: #6b7280;">${companyData.address || "Endereço da empresa"}</p>
+            </div>
+            <div style="text-align: right;">
+              <h2 style="font-size: 24px; font-weight: bold; color: #3b82f6;">ORÇAMENTO</h2>
+              <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">Número: ORC-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}</p>
+              <p style="font-size: 14px; color: #6b7280;">Data: ${new Date(budgetData.created_at).toLocaleDateString("pt-BR")}</p>
+              <p style="font-size: 14px; font-weight: 500; margin-top: 16px;">Válido por: 15 dias</p>
+            </div>
+          </div>
+          
+          <div style="padding: 24px 0; border-bottom: 1px solid #e5e7eb;">
+            <h3 style="font-weight: 600; color: #4b5563; margin-bottom: 8px;">PARA:</h3>
+            <p style="font-weight: 500;">${clientData.name || "Nome do Cliente"}</p>
+            <p style="font-size: 14px; color: #6b7280;">${clientData.email || "cliente@email.com"}</p>
+            <p style="font-size: 14px; color: #6b7280;">${clientData.phone || "(00) 00000-0000"}</p>
+            <p style="font-size: 14px; color: #6b7280;">${clientData.address || "Endereço do cliente"}</p>
+          </div>
+          
+          <div style="padding: 24px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="border-bottom: 1px solid #e5e7eb;">
+                  <th style="text-align: left; padding: 8px 0; font-size: 14px; font-weight: 600; color: #4b5563;">Descrição</th>
+                  <th style="text-align: right; padding: 8px 0; font-size: 14px; font-weight: 600; color: #4b5563;">Qtde</th>
+                  <th style="text-align: right; padding: 8px 0; font-size: 14px; font-weight: 600; color: #4b5563;">Preço Unit.</th>
+                  <th style="text-align: right; padding: 8px 0; font-size: 14px; font-weight: 600; color: #4b5563;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${budgetItems.length > 0 ? 
+                  budgetItems.map((item: any, index: number) => `
+                    <tr style="${index % 2 === 0 ? 'background-color: #f9fafb;' : ''}">
+                      <td style="padding: 12px 0; font-size: 14px;">${item.description || "Descrição do item"}</td>
+                      <td style="padding: 12px 0; font-size: 14px; text-align: right;">${item.quantity}</td>
+                      <td style="padding: 12px 0; font-size: 14px; text-align: right;">R$ ${item.unitPrice.toFixed(2)}</td>
+                      <td style="padding: 12px 0; font-size: 14px; text-align: right; font-weight: 500;">
+                        R$ ${(item.quantity * item.unitPrice).toFixed(2)}
+                      </td>
+                    </tr>
+                  `).join('') : 
+                  `<tr>
+                    <td colspan="4" style="padding: 16px 0; text-align: center; color: #6b7280; font-style: italic;">
+                      Nenhum item adicionado ao orçamento
+                    </td>
+                  </tr>`
+                }
+              </tbody>
+              <tfoot>
+                <tr style="border-top: 1px solid #e5e7eb;">
+                  <td colspan="3" style="padding: 16px 0; text-align: right; font-weight: bold;">
+                    Total
+                  </td>
+                  <td style="padding: 16px 0; text-align: right; font-weight: bold;">
+                    R$ ${budgetItems.reduce((sum: number, item: any) => sum + (item.quantity * item.unitPrice), 0).toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          
+          <div style="padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center;">
+            <p style="font-weight: 500; color: #3b82f6;">
+              Obrigado pela oportunidade de apresentar este orçamento.
+            </p>
+            <p style="font-size: 14px; color: #6b7280; margin-top: 8px;">
+              Para aprovar, responda este e-mail ou entre em contato.
+            </p>
+          </div>
+        </div>
+      `;
+      
+      container.innerHTML = budgetHtml;
+      
+      // Generate PDF
+      const fileName = `orcamento-${budgetData.client_name.toLowerCase().replace(/\s+/g, '-')}`;
+      const result = await generatePDF('budget-pdf', fileName, isFree);
+      
+      // Remove temporary container
+      document.body.removeChild(container);
+      
+      // Show result
+      if (result) {
+        toast.success("PDF gerado com sucesso!");
+        if (isFree) {
+          toast("Você está usando a versão gratuita com marca d'água", {
+            description: "Faça upgrade para a versão premium para remover marcas d'água"
+          });
         }
-        
-        // Navigate back to dashboard
-        navigate('/dashboard');
-      }, 1000);
+      } else {
+        toast.error("Erro ao gerar o PDF.");
+      }
     } catch (error: any) {
       toast.error("Erro ao gerar PDF: " + error.message);
       console.error("Error generating PDF:", error);
@@ -122,6 +264,11 @@ const Dashboard: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-800">
             Dashboard
           </h1>
+          {isFree && (
+            <div className="bg-amber-100 border border-amber-300 text-amber-800 px-4 py-2 rounded-md text-sm">
+              Plano Gratuito - PDFs incluem marca d'água
+            </div>
+          )}
         </div>
 
         <Tabs defaultValue="meus-orcamentos" className="w-full" value={activeTab} onValueChange={setActiveTab}>
@@ -188,7 +335,7 @@ const Dashboard: React.FC = () => {
                                 size="sm" 
                                 variant="outline" 
                                 className="bg-transparent text-amber-600 border-amber-600 hover:bg-amber-600 hover:text-white"
-                                onClick={() => handleDownloadPDF(budget.id, budget.client_name)}
+                                onClick={() => handleDownloadPDF(budget.id)}
                               >
                                 PDF
                               </Button>

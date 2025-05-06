@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { BudgetItem } from "./BudgetItems";
 import { generatePDF } from "@/utils/pdfUtils";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface BudgetSummaryProps {
   clientData: {
@@ -31,6 +32,8 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
   onBackToEdit,
 }) => {
   const budgetRef = useRef<HTMLDivElement>(null);
+  const { userPlan } = useAuth();
+  const isFree = userPlan === "free";
 
   const calculateTotal = (item: BudgetItem) => {
     return item.quantity * item.unitPrice;
@@ -52,10 +55,15 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
   const formattedDate = new Date().toLocaleDateString("pt-BR");
 
   const handleDownloadPDF = async () => {
-    const success = await generatePDF("budget-pdf", `Orcamento-${budgetNumber}`);
+    const success = await generatePDF("budget-pdf", `Orcamento-${budgetNumber}`, isFree);
     
     if (success) {
       toast.success("PDF gerado com sucesso!");
+      if (isFree) {
+        toast("Você está usando a versão gratuita com marca d'água", {
+          description: "Faça upgrade para a versão premium para remover marcas d'água"
+        });
+      }
     } else {
       toast.error("Erro ao gerar PDF. Por favor, tente novamente.");
     }
@@ -96,6 +104,12 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
               <p className="text-sm font-medium mt-4">Válido por: 15 dias</p>
             </div>
           </div>
+
+          {isFree && (
+            <div className="py-2 px-4 bg-gray-100 text-gray-600 text-sm text-center my-3 rounded">
+              Versão gratuita - O PDF incluirá marca d'água
+            </div>
+          )}
 
           <div className="py-6 border-b">
             <h3 className="font-semibold text-gray-700 mb-2">PARA:</h3>
