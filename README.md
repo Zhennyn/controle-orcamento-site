@@ -26,14 +26,25 @@ Apresentar a ferramenta **Controlorça** de forma clara e objetiva, destacando s
 ## 📁 Estrutura do Projeto
 
 controle-orcamento-site/
+
 ├── public/ # Arquivos públicos acessíveis diretamente
+
 ├── src/ # Código-fonte principal da aplicação
+
 │ ├── components/ # Componentes reutilizáveis da interface
+
 │ ├── pages/ # Páginas da aplicação
+
 │ └── styles/ # Arquivos de estilo
+
 ├── supabase/ # Configurações e scripts relacionados ao Supabase
+
 ├── index.html # Arquivo HTML principal
+
 ├── package.json # Dependências e scripts do projeto
+
 ├── tailwind.config.ts # Configuração do Tailwind CSS
+
 ├── tsconfig.json # Configuração do TypeScript
+
 └── vite.config.ts # Configuração do Vite
