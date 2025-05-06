@@ -2,7 +2,7 @@
 
 Este repositório contém o código-fonte do site oficial do **Controlorça**, uma plataforma desenvolvida para facilitar a criação e o gerenciamento de orçamentos de maneira simples e eficiente.
 
-🔗 Acesse a aplicação: [budget-blitz-creator.vercel.app](https://budget-blitz-creator.vercel.app)
+🔗 Acesse a aplicação: [budget-blitz-creator.vercel.app](https://controle-orcamento-site.vercel.app)
 
 ---
 
