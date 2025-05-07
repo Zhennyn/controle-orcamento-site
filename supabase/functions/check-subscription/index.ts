@@ -28,17 +28,21 @@ serve(async (req) => {
     // Authenticate the user
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: { headers: { Authorization: req.headers.get("Authorization")! } },
-        auth: { persistSession: false },
-      }
+      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
     );
+    
+    // Get the authorization header and extract the token
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("Missing authorization header");
+    }
+
+    const token = authHeader.replace("Bearer ", "");
     
     const {
       data: { user },
       error: userError,
-    } = await supabaseClient.auth.getUser();
+    } = await supabaseClient.auth.getUser(token);
 
     if (userError || !user) {
       throw new Error("Não foi possível autenticar o usuário");
@@ -79,12 +83,14 @@ serve(async (req) => {
     );
 
     // Update user metadata
-    await serviceClient.auth.admin.updateUserById(user.id, {
-      user_metadata: { 
-        ...user.user_metadata,
-        premium: isPremium
-      }
-    });
+    if (user && user.id) {
+      await serviceClient.auth.admin.updateUserById(user.id, {
+        user_metadata: { 
+          ...user.user_metadata,
+          premium: isPremium
+        }
+      });
+    }
 
     return new Response(
       JSON.stringify({ premium: isPremium }),
