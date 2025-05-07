@@ -15,7 +15,12 @@ serve(async (req) => {
   }
 
   try {
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+    const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeSecretKey) {
+      throw new Error("Stripe secret key not found in environment variables");
+    }
+    
+    const stripe = new Stripe(stripeSecretKey, {
       apiVersion: "2023-10-16",
       httpClient: Stripe.createFetchHttpClient(),
     });
@@ -67,7 +72,7 @@ serve(async (req) => {
           price_data: {
             currency: "brl",
             product_data: {
-              name: "Plano Premium Budget Blitz",
+              name: "Plano Premium Controlorça",
               description: "Acesso ao plano premium sem marcas d'água nos PDFs",
             },
             unit_amount: 2000, // R$20,00

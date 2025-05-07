@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FilePen, FileText, Eye } from "lucide-react";
+import { FilePen, FileText, Eye, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -50,6 +50,73 @@ const BudgetsList: React.FC<BudgetsListProps> = ({
         toast.error("Erro ao excluir orçamento: " + error.message);
         console.error("Error deleting budget:", error);
       }
+    }
+  };
+
+  const handleDuplicateBudget = async (budgetId: string) => {
+    try {
+      toast.loading("Duplicando orçamento...");
+      
+      // 1. Get the original budget
+      const { data: originalBudget, error: budgetError } = await supabase
+        .from("budgets")
+        .select("*")
+        .eq("id", budgetId)
+        .single();
+
+      if (budgetError) throw budgetError;
+
+      // 2. Create new budget with same data
+      const { data: newBudget, error: createError } = await supabase
+        .from("budgets")
+        .insert({
+          client_name: `${originalBudget.client_name} (Cópia)`,
+          service_description: originalBudget.service_description,
+          observations: originalBudget.observations,
+          user_id: originalBudget.user_id,
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      // 3. Get budget items
+      const { data: budgetItems, error: itemsError } = await supabase
+        .from("budget_items")
+        .select("*")
+        .eq("budget_id", budgetId);
+
+      if (itemsError) throw itemsError;
+
+      // 4. Clone budget items if they exist
+      if (budgetItems && budgetItems.length > 0) {
+        const newItems = budgetItems.map(item => ({
+          budget_id: newBudget.id,
+          item_name: item.item_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+        }));
+
+        const { error: insertItemsError } = await supabase
+          .from("budget_items")
+          .insert(newItems);
+
+        if (insertItemsError) throw insertItemsError;
+      }
+
+      // 5. Refresh budgets list
+      const { data: updatedBudgets, error: refreshError } = await supabase
+        .from("budgets")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (refreshError) throw refreshError;
+      
+      onBudgetsChange(updatedBudgets || []);
+      toast.success("Orçamento duplicado com sucesso");
+    } catch (error: any) {
+      toast.error("Erro ao duplicar orçamento: " + error.message);
+      console.error("Error duplicating budget:", error);
     }
   };
 
@@ -132,7 +199,19 @@ const BudgetsList: React.FC<BudgetsListProps> = ({
                 <TableCell className="hidden md:table-cell">
                   {new Date(budget.created_at).toLocaleDateString("pt-BR")}
                 </TableCell>
-                <TableCell className="text-right space-x-2">
+                <TableCell className="text-right space-x-1">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="bg-transparent text-amber-600 border-amber-600 hover:bg-amber-600 hover:text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDuplicateBudget(budget.id);
+                    }}
+                  >
+                    <Copy className="h-4 w-4 mr-1" />
+                    Duplicar
+                  </Button>
                   <Link to={`/edit-budget/${budget.id}`} onClick={(e) => e.stopPropagation()}>
                     <Button size="sm" variant="outline" className="bg-transparent text-budget-blue border-budget-blue hover:bg-budget-blue hover:text-white">
                       <FilePen className="h-4 w-4 mr-1" />
